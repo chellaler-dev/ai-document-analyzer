@@ -29,3 +29,6 @@ hiredis==2.3.2  # Faster Redis client
 # Monitoring
 prometheus-client==0.19.0
 prometheus-fastapi-instrumentator==6.1.0
+
+# Rate Limiting
+slowapi==0.1.9

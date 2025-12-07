@@ -1,7 +1,8 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException, Form
+from fastapi import FastAPI, File, UploadFile, HTTPException, Form, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from prometheus_client import make_asgi_app
+from slowapi.errors import RateLimitExceeded
 import uvicorn
 from pathlib import Path
 import shutil
@@ -19,6 +20,7 @@ from monitoring import (
     RequestTracker, record_document_processed,
     get_metrics_summary, initialize_api_info, active_requests
 )
+from rate_limit import limiter, rate_limit_exceeded_handler
 
 # Configure logging
 logging.basicConfig(
@@ -35,6 +37,10 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc"
 )
+
+# Add rate limiting
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 
 # Add Prometheus metrics endpoint
 metrics_app = make_asgi_app()
@@ -298,7 +304,9 @@ async def extract_entities(file: UploadFile = File(...)):
             file_path.unlink()
 
 @app.post("/analyze")
+@limiter.limit("10/minute")  # Rate limit: 10 requests per minute
 async def analyze_document(
+    request: Request,
     file: UploadFile = File(...),
     categories: Optional[str] = Form(None)
 ):
@@ -307,6 +315,8 @@ async def analyze_document(
     
     - **file**: Document file (image or PDF)
     - **categories**: Optional comma-separated list of categories
+    
+    Rate limited to 10 requests per minute per IP
     """
     if not models_loaded:
         raise HTTPException(status_code=503, detail="Models not loaded yet. Please wait.")
