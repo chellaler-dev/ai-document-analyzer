@@ -1,6 +1,7 @@
 from fastapi import FastAPI, File, UploadFile, HTTPException, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from prometheus_client import make_asgi_app
 import uvicorn
 from pathlib import Path
 import shutil
@@ -14,6 +15,10 @@ from utils import (
     Timer, create_response, extract_key_info
 )
 from cache import cache
+from monitoring import (
+    RequestTracker, record_document_processed,
+    get_metrics_summary, initialize_api_info, active_requests
+)
 
 # Configure logging
 logging.basicConfig(
@@ -30,6 +35,10 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc"
 )
+
+# Add Prometheus metrics endpoint
+metrics_app = make_asgi_app()
+app.mount("/metrics", metrics_app)
 
 # CORS middleware
 app.add_middleware(
@@ -90,6 +99,11 @@ async def clear_cache():
         "success": success,
         "message": "Cache cleared" if success else "Cache not available"
     }
+
+@app.get("/metrics/summary")
+async def metrics_summary():
+    """Get metrics summary"""
+    return get_metrics_summary()
 
 @app.post("/classify")
 async def classify_document(
@@ -383,6 +397,9 @@ async def startup_event():
     logger.info("Starting AI Document Intelligence API...")
     logger.info("=" * 50)
     
+    # Initialize monitoring
+    initialize_api_info(version="1.0.0", environment="development")
+    
     try:
         # Load models
         logger.info("Loading ML models (this may take a minute)...")
@@ -400,6 +417,7 @@ async def startup_event():
         logger.info(f"✓ Upload directory ready: {UPLOAD_DIR.absolute()}")
         logger.info("=" * 50)
         logger.info("API is ready! Visit http://localhost:8000/docs")
+        logger.info("Metrics available at: http://localhost:8000/metrics")
         logger.info("=" * 50)
         
     except Exception as e:

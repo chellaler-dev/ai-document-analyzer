@@ -4,6 +4,7 @@ import hashlib
 from typing import Optional, Any
 import logging
 from pathlib import Path
+from monitoring import record_cache_operation
 
 logger = logging.getLogger(__name__)
 
@@ -83,11 +84,14 @@ class Cache:
             value = self.redis_client.get(key)
             if value:
                 logger.info(f"✓ Cache HIT: {key[:20]}...")
+                record_cache_operation("get", "hit")
                 return json.loads(value)
             logger.info(f"✗ Cache MISS: {key[:20]}...")
+            record_cache_operation("get", "miss")
             return None
         except Exception as e:
             logger.error(f"Cache get error: {e}")
+            record_cache_operation("get", "error")
             return None
     
     def set(self, key: str, value: Any, ttl: int = 3600) -> bool:
@@ -112,9 +116,11 @@ class Cache:
                 json.dumps(value)
             )
             logger.info(f"✓ Cached: {key[:20]}... (TTL: {ttl}s)")
+            record_cache_operation("set", "success")
             return True
         except Exception as e:
             logger.error(f"Cache set error: {e}")
+            record_cache_operation("set", "error")
             return False
     
     def delete(self, key: str) -> bool:

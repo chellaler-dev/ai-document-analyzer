@@ -4,6 +4,7 @@ from PIL import Image
 import pytesseract
 from pathlib import Path
 import logging
+from monitoring import track_inference_time, track_confidence, record_ocr_operation
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +32,8 @@ class DocumentClassifier:
             logger.error(f"Error loading model: {str(e)}")
             return False
     
+    @track_inference_time("classifier")
+    @track_confidence("classifier", threshold=0.7)
     def classify_document(self, text: str, candidate_labels: list = None):
         """
         Classify document text into categories
@@ -114,10 +117,12 @@ class TextExtractor:
             text = pytesseract.image_to_string(image)
             
             logger.info(f"Extracted {len(text)} characters from image")
+            record_ocr_operation("success")
             return text.strip()
         
         except Exception as e:
             logger.error(f"OCR error: {str(e)}")
+            record_ocr_operation("error")
             raise
     
     def extract_text_from_pdf(self, pdf_path: Path) -> str:
@@ -169,6 +174,7 @@ class NamedEntityRecognizer:
             logger.error(f"Error loading NER model: {str(e)}")
             return False
     
+    @track_inference_time("ner")
     def extract_entities(self, text: str):
         """
         Extract named entities from text
