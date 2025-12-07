@@ -17,7 +17,7 @@ COPY requirements.txt .
 
 # Python dependencies in a virtual environment
 RUN python -m venv /opt/venv && \
-    /opt/venv/bin/python -m      --upgrade && \
+    /opt/venv/bin/python -m ensurepip --upgrade && \
     /opt/venv/bin/pip install --no-cache-dir --upgrade pip
 
 ENV PATH="/opt/venv/bin:$PATH"
@@ -50,7 +50,7 @@ ENV PATH="/opt/venv/bin:$PATH" \
     TZ=UTC
 
 # Copy application code
-COPY app/ /app/app/
+COPY app/ /app/
 
 # Create necessary directories
 RUN mkdir -p /app/uploads /app/models /app/data
@@ -68,4 +68,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD python -c "import requests; requests.get('http://localhost:8000/health')"
 
 # Run the application
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
