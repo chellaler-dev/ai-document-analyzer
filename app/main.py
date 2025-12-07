@@ -13,6 +13,7 @@ from utils import (
     get_file_hash, clean_text, get_file_extension,
     Timer, create_response, extract_key_info
 )
+from cache import cache
 
 # Configure logging
 logging.basicConfig(
@@ -67,11 +68,27 @@ async def root():
 @app.get("/health")
 async def health_check():
     """Detailed health check"""
+    cache_stats = cache.get_stats()
     return {
         "status": "healthy",
         "api": "operational",
         "models_loaded": models_loaded,
-        "ocr_available": text_extractor.ocr_available
+        "ocr_available": text_extractor.ocr_available,
+        "cache": cache_stats
+    }
+
+@app.get("/cache/stats")
+async def get_cache_stats():
+    """Get cache statistics"""
+    return cache.get_stats()
+
+@app.post("/cache/clear")
+async def clear_cache():
+    """Clear all cache (admin endpoint)"""
+    success = cache.clear()
+    return {
+        "success": success,
+        "message": "Cache cleared" if success else "Cache not available"
     }
 
 @app.post("/classify")
@@ -296,6 +313,13 @@ async def analyze_document(
             with file_path.open("wb") as buffer:
                 shutil.copyfileobj(file.file, buffer)
             
+            # Check cache first
+            cache_key = cache.generate_key(file_path, "analyze")
+            cached_result = cache.get(cache_key)
+            if cached_result:
+                logger.info("Returning cached analysis result")
+                return cached_result
+            
             # Extract text
             if ext == ".pdf":
                 text = text_extractor.extract_text_from_pdf(file_path)
@@ -318,7 +342,7 @@ async def analyze_document(
             entities = ner.extract_entities(text)
             key_info = extract_key_info(text)
             
-            return create_response(
+            response = create_response(
                 success=True,
                 message="Document analyzed successfully",
                 data={
@@ -331,9 +355,15 @@ async def analyze_document(
                         "word_count": len(text.split()),
                         "line_count": text.count('\n') + 1
                     },
-                    "text_preview": text[:300] + "..." if len(text) > 300 else text
+                    "text_preview": text[:300] + "..." if len(text) > 300 else text,
+                    "cached": False
                 }
             )
+            
+            # Cache the result
+            cache.set(cache_key, response, ttl=3600)
+            
+            return response
     
     except HTTPException:
         raise
