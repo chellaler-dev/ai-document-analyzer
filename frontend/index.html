@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Document Intelligence</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+            max-width: 800px;
+            width: 100%;
+        }
+        
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+        }
+        
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 20px;
+        }
+        
+        .upload-area:hover {
+            background: #f0f4ff;
+            border-color: #764ba2;
+        }
+        
+        .upload-area.dragover {
+            background: #e0e7ff;
+            border-color: #764ba2;
+        }
+        
+        input[type="file"] {
+            display: none;
+        }
+        
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 10px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: transform 0.2s;
+            width: 100%;
+            margin-top: 20px;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .results {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            display: none;
+        }
+        
+        .results.show {
+            display: block;
+        }
+        
+        .result-section {
+            margin-bottom: 20px;
+        }
+        
+        .result-section h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        
+        .classification {
+            font-size: 1.5em;
+            color: #764ba2;
+            font-weight: bold;
+        }
+        
+        .confidence {
+            color: #28a745;
+            font-weight: bold;
+        }
+        
+        .entity {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            margin: 5px;
+            font-size: 0.9em;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .loading.show {
+            display: block;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            display: none;
+        }
+        
+        .error.show {
+            display: block;
+        }
+        
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .metric-card {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .metric-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .metric-label {
+            color: #666;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 AI Document Intelligence</h1>
+        <p class="subtitle">Upload a document for intelligent analysis</p>
+        
+        <div class="upload-area" id="uploadArea">
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#667eea" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="17 8 12 3 7 8"></polyline>
+                <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+            <p style="margin-top: 15px; color: #667eea; font-size: 1.2em;">
+                <strong>Click to upload</strong> or drag and drop
+            </p>
+            <p style="color: #999; margin-top: 10px;">
+                PDF, PNG, JPEG (max 10MB)
+            </p>
+            <input type="file" id="fileInput" accept=".pdf,.png,.jpg,.jpeg">
+        </div>
+        
+        <div id="fileName" style="text-align: center; color: #666; margin-bottom: 10px;"></div>
+        
+        <button id="analyzeBtn" disabled>Analyze Document</button>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Analyzing document...</p>
+        </div>
+        
+        <div class="error" id="error"></div>
+        
+        <div class="results" id="results">
+            <div class="result-section">
+                <h3>📄 Classification</h3>
+                <div class="classification" id="classification"></div>
+                <div style="margin-top: 10px;">
+                    Confidence: <span class="confidence" id="confidence"></span>
+                </div>
+            </div>
+            
+            <div class="result-section">
+                <h3>🏢 Entities Found</h3>
+                <div id="entities"></div>
+            </div>
+            
+            <div class="result-section">
+                <h3>📊 Key Information</h3>
+                <div class="metrics" id="keyInfo"></div>
+            </div>
+            
+            <div class="result-section">
+                <h3>📝 Text Preview</h3>
+                <div id="textPreview" style="background: white; padding: 15px; border-radius: 5px; max-height: 200px; overflow-y: auto;"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const API_URL = 'http://localhost:8000';
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const fileName = document.getElementById('fileName');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const loading = document.getElementById('loading');
+        const error = document.getElementById('error');
+        const results = document.getElementById('results');
+        
+        let selectedFile = null;
+        
+        // Click to upload
+        uploadArea.addEventListener('click', () => fileInput.click());
+        
+        // Drag and drop
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+        
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        });
+        
+        function handleFile(file) {
+            selectedFile = file;
+            fileName.textContent = `Selected: ${file.name}`;
+            analyzeBtn.disabled = false;
+            error.classList.remove('show');
+            results.classList.remove('show');
+        }
+        
+        analyzeBtn.addEventListener('click', analyzeDocument);
+        
+        async function analyzeDocument() {
+            if (!selectedFile) return;
+            
+            // Show loading
+            loading.classList.add('show');
+            error.classList.remove('show');
+            results.classList.remove('show');
+            analyzeBtn.disabled = true;
+            
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+            
+            try {
+                const response = await fetch(`${API_URL}/analyze`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Error: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                displayResults(data.data);
+                
+            } catch (err) {
+                error.textContent = `Error: ${err.message}. Make sure the API is running on ${API_URL}`;
+                error.classList.add('show');
+            } finally {
+                loading.classList.remove('show');
+                analyzeBtn.disabled = false;
+            }
+        }
+        
+        function displayResults(data) {
+            // Classification
+            document.getElementById('classification').textContent = 
+                data.classification.predicted_category.toUpperCase();
+            document.getElementById('confidence').textContent = 
+                (data.classification.confidence * 100).toFixed(1) + '%';
+            
+            // Entities
+            const entitiesDiv = document.getElementById('entities');
+            entitiesDiv.innerHTML = '';
+            
+            ['persons', 'organizations', 'locations'].forEach(type => {
+                if (data.entities[type] && data.entities[type].length > 0) {
+                    data.entities[type].forEach(entity => {
+                        const span = document.createElement('span');
+                        span.className = 'entity';
+                        span.textContent = `${entity.text} (${(entity.confidence * 100).toFixed(0)}%)`;
+                        entitiesDiv.appendChild(span);
+                    });
+                }
+            });
+            
+            if (entitiesDiv.children.length === 0) {
+                entitiesDiv.textContent = 'No entities found';
+            }
+            
+            // Key Info
+            const keyInfoDiv = document.getElementById('keyInfo');
+            keyInfoDiv.innerHTML = '';
+            
+            const metrics = [
+                { label: 'Emails', value: data.key_info.emails.length },
+                { label: 'Phones', value: data.key_info.phone_numbers.length },
+                { label: 'Dates', value: data.key_info.dates.length },
+                { label: 'Amounts', value: data.key_info.amounts.length }
+            ];
+            
+            metrics.forEach(metric => {
+                const card = document.createElement('div');
+                card.className = 'metric-card';
+                card.innerHTML = `
+                    <div class="metric-value">${metric.value}</div>
+                    <div class="metric-label">${metric.label}</div>
+                `;
+                keyInfoDiv.appendChild(card);
+            });
+            
+            // Text Preview
+            document.getElementById('textPreview').textContent = data.text_preview;
+            
+            // Show results
+            results.classList.add('show');
+        }
+    </script>
+</body>
+</html>
