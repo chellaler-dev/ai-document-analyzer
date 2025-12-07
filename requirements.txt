@@ -1,0 +1,23 @@
+# Web Framework
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+python-multipart==0.0.6
+
+# ML & NLP
+torch==2.1.2
+transformers==4.37.0
+sentencepiece==0.1.99
+
+# Document Processing
+pillow==10.2.0
+pytesseract==0.3.10
+PyPDF2==3.0.1
+
+# Utilities
+pydantic==2.5.3
+python-jose[cryptography]==3.3.0
+aiofiles==23.2.1
+
+# Development
+pytest==7.4.4
+httpx==0.26.0
